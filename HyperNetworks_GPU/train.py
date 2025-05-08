@@ -2,7 +2,7 @@
 HyperNetworks GPU Training Script
 
 This script implements GPU-accelerated training for the HyperNetworks model on CIFAR-10.
-Designed to be run in the 'conda mod' environment with GPU support.
+Designed to be run in the 'sae_eeg' environment with GPU support.
 
 Original Paper: "HyperNetworks" by Ha, Dai and Schmidhuber (2016)
 https://arxiv.org/abs/1609.09106
@@ -10,10 +10,11 @@ https://arxiv.org/abs/1609.09106
 Requirements:
 - PyTorch 2.x+
 - CUDA support
-- conda mod environment
+- conda sae_eeg environment
+- Weights & Biases (wandb) for logging
 
 To run:
-  conda run -n mod python train.py [options]
+  conda run -n sae_eeg python train.py [options]
 
 Options:
   --resume, -r      Resume from checkpoint
@@ -22,6 +23,9 @@ Options:
   --lr              Learning rate (default: 0.002)
   --weight_decay    Weight decay (default: 0.0005)
   --checkpoint_path Path for checkpoint (default: ./hypernetworks_cifar_gpu.pth)
+  --no_wandb        Disable wandb logging
+  --wandb_project   WandB project name (default: hypernetworks-gpu)
+  --wandb_name      WandB run name (default: None, auto-generated)
 """
 
 import torch
@@ -33,6 +37,7 @@ import argparse
 import time
 import os
 import warnings
+import wandb
 
 # Ignore specific warnings from torchvision
 warnings.filterwarnings("ignore", message="Failed to load image Python extension")
@@ -47,7 +52,42 @@ parser.add_argument('--epochs', type=int, default=200, help='number of epochs to
 parser.add_argument('--lr', type=float, default=0.002, help='learning rate')
 parser.add_argument('--weight_decay', type=float, default=0.0005, help='weight decay')
 parser.add_argument('--checkpoint_path', type=str, default='./hypernetworks_cifar_gpu.pth', help='path to save checkpoint')
+parser.add_argument('--no_wandb', action='store_true', help='disable wandb logging')
+parser.add_argument('--wandb_project', type=str, default='hypernetworks-gpu', help='wandb project name')
+parser.add_argument('--wandb_name', type=str, default=None, help='wandb run name')
 args = parser.parse_args()
+
+# Configure wandb
+use_wandb = not args.no_wandb
+if use_wandb:
+    # Set wandb environment variables for Tsinghua account
+    os.environ["WANDB_API_KEY"] = "9c973791b10e62adc1089ca11baa273755d50d7f"
+    os.environ["WANDB_ENTITY"] = "electrixoul-tsinghua-university"
+    
+    # Generate run name if not provided
+    if args.wandb_name is None:
+        wandb_name = f"hypernetworks_b{args.batch_size}_lr{args.lr}_e{args.epochs}"
+    else:
+        wandb_name = args.wandb_name
+    
+    # Initialize wandb run
+    wandb.init(
+        entity="electrixoul-tsinghua-university",
+        project=args.wandb_project,
+        name=wandb_name,
+        config={
+            "batch_size": args.batch_size,
+            "learning_rate": args.lr,
+            "epochs": args.epochs,
+            "weight_decay": args.weight_decay,
+            "architecture": "HyperNetwork-ResNet",
+            "dataset": "CIFAR-10",
+            "optimizer": "Adam",
+            "scheduler": "MultiStepLR",
+            "scheduler_milestones": [int(args.epochs * 0.3), int(args.epochs * 0.6), int(args.epochs * 0.8)],
+            "scheduler_gamma": 0.5
+        }
+    )
 
 # Set device
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -171,6 +211,10 @@ if torch.cuda.device_count() > 1:
     print(f"Using {torch.cuda.device_count()} GPUs!")
     net = nn.DataParallel(net)
 
+# Log the model architecture to wandb if enabled
+if use_wandb:
+    wandb.watch(net, log="all", log_freq=100)
+
 best_accuracy = 0.0
 
 # Resume from checkpoint if specified
@@ -195,12 +239,17 @@ print("Starting training...")
 total_parameters = sum(p.numel() for p in net.parameters())
 print(f"Total parameters in model: {total_parameters:,}")
 
+# Log total parameters to wandb if enabled
+if use_wandb:
+    wandb.log({"total_parameters": total_parameters})
+
 for epoch in range(args.epochs):
     start_time = time.time()
     net.train()
     running_loss = 0.0
-    correct = 0
-    total = 0
+    train_correct = 0
+    train_total = 0
+    batch_loss_history = []
     
     for i, data in enumerate(trainloader):
         inputs, labels = data
@@ -214,14 +263,25 @@ for epoch in range(args.epochs):
         
         optimizer.step()
         
+        # Track statistics
         running_loss += loss.item()
+        batch_loss_history.append(loss.item())
         _, predicted = outputs.max(1)
-        total += labels.size(0)
-        correct += predicted.eq(labels).sum().item()
+        train_total += labels.size(0)
+        train_correct += predicted.eq(labels).sum().item()
+        
+        # Log batch metrics to wandb if enabled (every 50 batches)
+        if use_wandb and (i + 1) % 50 == 0:
+            wandb.log({
+                "batch": i + 1 + epoch * len(trainloader),
+                "batch_loss": running_loss/50,
+                "batch_accuracy": 100.*train_correct/train_total,
+                "learning_rate": optimizer.param_groups[0]['lr']
+            })
         
         if (i + 1) % 50 == 0:
             print(f"Epoch [{epoch+1}/{args.epochs}], Batch [{i+1}/{len(trainloader)}], "
-                  f"Loss: {running_loss/50:.4f}, Acc: {100.*correct/total:.2f}%")
+                  f"Loss: {running_loss/50:.4f}, Acc: {100.*train_correct/train_total:.2f}%")
             running_loss = 0.0
     
     # Apply learning rate scheduler
@@ -230,34 +290,69 @@ for epoch in range(args.epochs):
     
     # Evaluate on test set
     net.eval()
+    test_loss = 0.0
     test_correct = 0
     test_total = 0
+    
     with torch.no_grad():
         for data in testloader:
             images, labels = data
             images, labels = images.to(device), labels.to(device)
             outputs = net(images)
+            loss = criterion(outputs, labels)
+            test_loss += loss.item()
             _, predicted = outputs.max(1)
             test_total += labels.size(0)
             test_correct += predicted.eq(labels).sum().item()
     
-    accuracy = 100. * test_correct / test_total
+    # Calculate metrics
+    train_accuracy = 100. * train_correct / train_total
+    test_accuracy = 100. * test_correct / test_total
+    avg_test_loss = test_loss / len(testloader)
     epoch_time = time.time() - start_time
     
     print(f"Epoch {epoch+1}/{args.epochs} completed in {epoch_time:.2f}s | "
-          f"Train Acc: {100.*correct/total:.2f}% | Test Acc: {accuracy:.2f}% | "
+          f"Train Acc: {train_accuracy:.2f}% | Test Acc: {test_accuracy:.2f}% | "
           f"Learning Rate: {current_lr:.6f}")
     
+    # Log epoch metrics to wandb if enabled
+    if use_wandb:
+        wandb.log({
+            "epoch": epoch + 1,
+            "train_accuracy": train_accuracy,
+            "test_accuracy": test_accuracy,
+            "test_loss": avg_test_loss,
+            "learning_rate": current_lr,
+            "epoch_time": epoch_time
+        })
+    
     # Save checkpoint if accuracy improved
-    if accuracy > best_accuracy:
+    if test_accuracy > best_accuracy:
         print('Saving model...')
         state = {
             'net': net.state_dict(),
-            'acc': accuracy,
+            'acc': test_accuracy,
             'epoch': epoch,
         }
         torch.save(state, args.checkpoint_path)
-        best_accuracy = accuracy
+        best_accuracy = test_accuracy
+        
+        # Log best model to wandb if enabled
+        if use_wandb:
+            wandb.run.summary["best_accuracy"] = best_accuracy
+            wandb.run.summary["best_epoch"] = epoch + 1
+            # Save the model to wandb
+            model_artifact = wandb.Artifact(
+                name=f"hypernetwork-model-{wandb.run.id}", 
+                type="model",
+                description="Best HyperNetwork model"
+            )
+            model_artifact.add_file(args.checkpoint_path)
+            wandb.log_artifact(model_artifact)
 
 print('Finished Training')
 print(f'Best accuracy: {best_accuracy:.2f}%')
+
+# Finish wandb run if enabled
+if use_wandb:
+    wandb.finish()

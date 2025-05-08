@@ -10,6 +10,9 @@ LEARNING_RATE=0.002
 WEIGHT_DECAY=0.0005
 CHECKPOINT_PATH="./hypernetworks_cifar_gpu.pth"
 RESUME=false
+USE_WANDB=true
+WANDB_PROJECT="hypernetworks-gpu"
+WANDB_NAME=""
 
 # Parse command line arguments
 while [[ $# -gt 0 ]]; do
@@ -44,6 +47,20 @@ while [[ $# -gt 0 ]]; do
       RESUME=true
       shift
       ;;
+    --no_wandb)
+      USE_WANDB=false
+      shift
+      ;;
+    --wandb_project)
+      WANDB_PROJECT="$2"
+      shift
+      shift
+      ;;
+    --wandb_name)
+      WANDB_NAME="$2"
+      shift
+      shift
+      ;;
     *)
       echo "Unknown option: $1"
       exit 1
@@ -67,6 +84,21 @@ else
   RESUME_FLAG=""
 fi
 
+echo "WandB logging: $([ "$USE_WANDB" = true ] && echo "Enabled" || echo "Disabled")"
+if [ "$USE_WANDB" = true ]; then
+  echo "WandB project: $WANDB_PROJECT"
+  if [ -n "$WANDB_NAME" ]; then
+    echo "WandB run name: $WANDB_NAME"
+    WANDB_NAME_FLAG="--wandb_name $WANDB_NAME"
+  else
+    echo "WandB run name: Auto-generated"
+    WANDB_NAME_FLAG=""
+  fi
+  WANDB_FLAGS="--wandb_project $WANDB_PROJECT $WANDB_NAME_FLAG"
+else
+  WANDB_FLAGS="--no_wandb"
+fi
+
 echo -e "\nStarting training...\n"
 
 # Run the training script in the sae_eeg conda environment
@@ -76,4 +108,5 @@ cd HyperNetworks_GPU && conda run -n sae_eeg python train.py \
   --lr $LEARNING_RATE \
   --weight_decay $WEIGHT_DECAY \
   --checkpoint_path $CHECKPOINT_PATH \
-  $RESUME_FLAG
+  $RESUME_FLAG \
+  $WANDB_FLAGS

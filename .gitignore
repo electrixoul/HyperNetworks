@@ -28,6 +28,20 @@ results/
 *.log
 *.out
 
+# WandB related files and directories
+wandb/
+**/wandb/
+.wandb/
+**/.wandb/
+*.wandb
+wandb-debug.log
+wandb-summary.json
+
+# Temporary files that might be created during training
+*.npy
+*.npz
+*.tmp
+
 # Python related
 __pycache__/
 *.py[cod]
@@ -68,3 +82,10 @@ Thumbs.db
 ehthumbs.db
 Icon?
 ehthumbs_vista.db
+
+# Any large temporary files that might be created
+*.tar.gz
+*.zip
+*.rar
+*.tar
+*.7z
