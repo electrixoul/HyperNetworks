@@ -1,6 +1,6 @@
 # HyperNetworks GPU 实现
 
-这是 [HyperNetworks](https://arxiv.org/abs/1609.09106) (Ha 等人，ICLR 2017) 的 GPU 优化 PyTorch 实现。该实现针对现代 GPU 做了优化，用于 CIFAR-10 数据集上的 ResNet 训练。
+这是 [HyperNetworks](https://arxiv.org/abs/1609.09106) (Ha 等人，ICLR 2017) 的 GPU 优化 PyTorch 实现。该实现针对现代 GPU 做了优化，用于 CIFAR-10 数据集上的 ResNet 训练。本实现特别适配了 conda mod 环境，并针对 PyTorch 2.7.0 和 CUDA 12.6 进行了兼容性优化。
 
 ## 与CPU实现的主要区别
 

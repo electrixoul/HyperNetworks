@@ -1,3 +1,16 @@
+"""
+HyperNetworks GPU Implementation - Primary Network
+
+This file implements the primary network architecture that uses dynamically generated
+weights from hypernetworks. The implementation includes a ResNet-like architecture with
+embedding generation for CIFAR-10 classification.
+
+Original Paper: "HyperNetworks" by Ha, Dai and Schmidhuber (2016)
+https://arxiv.org/abs/1609.09106
+
+This implementation is optimized for GPU execution with CUDA tensor operations.
+"""
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F

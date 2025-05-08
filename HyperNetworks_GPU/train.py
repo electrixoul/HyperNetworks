@@ -1,3 +1,29 @@
+"""
+HyperNetworks GPU Training Script
+
+This script implements GPU-accelerated training for the HyperNetworks model on CIFAR-10.
+Designed to be run in the 'conda mod' environment with GPU support.
+
+Original Paper: "HyperNetworks" by Ha, Dai and Schmidhuber (2016)
+https://arxiv.org/abs/1609.09106
+
+Requirements:
+- PyTorch 2.x+
+- CUDA support
+- conda mod environment
+
+To run:
+  conda run -n mod python train.py [options]
+
+Options:
+  --resume, -r      Resume from checkpoint
+  --batch_size      Batch size (default: 128)
+  --epochs          Number of epochs (default: 200)
+  --lr              Learning rate (default: 0.002)
+  --weight_decay    Weight decay (default: 0.0005)
+  --checkpoint_path Path for checkpoint (default: ./hypernetworks_cifar_gpu.pth)
+"""
+
 import torch
 import torchvision
 import torchvision.transforms as transforms

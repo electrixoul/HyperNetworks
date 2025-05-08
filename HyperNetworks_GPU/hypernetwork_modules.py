@@ -1,3 +1,15 @@
+"""
+HyperNetworks GPU Implementation - Core Modules
+
+This file contains the core HyperNetwork implementation for GPU acceleration.
+The HyperNetwork generates weights for layers in the primary network dynamically.
+
+Original Paper: "HyperNetworks" by Ha, Dai and Schmidhuber (2016)
+https://arxiv.org/abs/1609.09106
+
+This implementation is optimized for GPU execution with direct CUDA tensor operations.
+"""
+
 import torch
 import torch.nn as nn
 from torch.nn.parameter import Parameter

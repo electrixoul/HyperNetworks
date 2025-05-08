@@ -1,3 +1,15 @@
+"""
+HyperNetworks GPU Implementation - ResNet Blocks
+
+This file implements the ResNet block architecture used in the HyperNetworks model.
+These blocks use dynamically generated weights for convolutions instead of fixed weights.
+
+Original Paper: "HyperNetworks" by Ha, Dai and Schmidhuber (2016)
+https://arxiv.org/abs/1609.09106
+
+This implementation is optimized for GPU execution with CUDA tensor operations.
+"""
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
