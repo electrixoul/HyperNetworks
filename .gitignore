@@ -1,8 +1,13 @@
-# CIFAR-10 dataset directory
+# CIFAR-10 dataset directories in all locations
 data/
 ../data/
+*/data/
+HyperNetworks_CPU/data/
+HyperNetworks_GPU/data/
+**/data/cifar-10-batches-py/
+**/data/cifar-10-python.tar.gz
 
-# Model checkpoints and saved models
+# Model checkpoints and saved models (in all directories)
 *.pth
 *.pt
 *.ckpt
@@ -11,6 +16,10 @@ data/
 *.model
 *.weights
 *.bin
+**/checkpoints/
+**/saved_models/
+HyperNetworks_GPU/hypernetworks_cifar_gpu.pth
+HyperNetworks_CPU/hypernetworks_cifar_paper.pth
 
 # Logs and outputs
 logs/
